@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from logging_loki import LokiHandler
 from pythonjsonlogger import jsonlogger
 
 from .config import get_settings
@@ -22,42 +21,66 @@ class UTCFormatter(jsonlogger.JsonFormatter):
 
 
 settings = get_settings()
-_configured_logger: logging.Logger | None = None
+_configured = False
+
+# In case Uvicorn config runs after import, provide a helper to re-tune loggers
+# without re-creating handlers. This is safe to call multiple times.
 
 
 def configure_logging() -> logging.Logger:
-    global _configured_logger
-    if _configured_logger:
-        return _configured_logger
+    global _configured
+    if _configured:
+        # Re-ajustar niveles y propagación de loggers de librerías en cada llamada
+        root_logger = logging.getLogger()
+        root_logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+        _tune_library_loggers()
+        return root_logger
 
-    logger = logging.getLogger(settings.app_name)
-    logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+    # Configurar el logger raíz
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+    
+    # Limpiar handlers existentes
+    root_logger.handlers.clear()
 
     formatter = UTCFormatter("%(timestamp)s %(level)s %(message)s")
 
-    if not any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        logger.addHandler(stream_handler)
+    # Stream handler para consola
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+    root_logger.addHandler(stream_handler)
 
-    if settings.loki_url and not any(isinstance(handler, LokiHandler) for handler in logger.handlers):
-        loki_handler = LokiHandler(
-            url=settings.loki_url,
-            tags={
-                "app": settings.app_name,
-                "env": settings.environment,
-                "service": settings.service_name,
-            },
-            version="1",
-        )
-        loki_handler.setFormatter(formatter)
-        logger.addHandler(loki_handler)
-
-    logger.propagate = False
-    _configured_logger = logger
-    return logger
+    # Configurar loggers específicos de librerías
+    _tune_library_loggers()
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    
+    _configured = True
+    return root_logger
 
 
 def get_logger(module_name: str) -> logging.Logger:
-    logger = configure_logging()
-    return logger.getChild(module_name)
+    configure_logging()
+    return logging.getLogger(module_name)
+
+
+def _tune_library_loggers() -> None:
+    """Ensure third-party loggers forward to our root handler.
+
+    Uvicorn config can override logger handlers/propagation during startup.
+    We clear their handlers and enable propagation so our root stream handler
+    formats everything (including access logs) as JSON. Safe to call multiple times.
+    """
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    # Access logs must not be disabled and should propagate
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi"):
+        lib_logger = logging.getLogger(name)
+        lib_logger.disabled = False
+        lib_logger.setLevel(level if name != "uvicorn.access" else logging.INFO)
+        # Remove their own handlers and propagate to root
+        lib_logger.handlers.clear()
+        lib_logger.propagate = True
+
+    # Common noisy libraries - keep at WARNING unless overridden
+    logging.getLogger("h11").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)

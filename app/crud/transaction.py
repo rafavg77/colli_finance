@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,6 +92,76 @@ class TransactionCRUD:
         )
 
     @staticmethod
+    async def transfer(
+        db: AsyncSession,
+        *,
+        user_id: int,
+        source_card_id: int,
+        destination_card_id: int,
+        amount: Decimal,
+        description: str | None = None,
+        category_id: int | None = None,
+    ) -> tuple[Transaction, Transaction]:
+        """Create a pair of transactions to represent a transfer between user's own cards.
+
+        - Source card: expenses = amount
+        - Destination card: income = amount
+        Both transactions share description/category and are marked executed=True.
+        """
+        if source_card_id == destination_card_id:
+            raise ValueError("La tarjeta origen y destino no pueden ser la misma")
+
+        # Prepare payloads
+        desc = description or "Transferencia entre cuentas"
+        expense_kwargs = dict(
+            user_id=user_id,
+            card_id=source_card_id,
+            description=desc,
+            category_id=category_id,
+            income=Decimal("0.00"),
+            expenses=amount,
+            executed=True,
+        )
+        income_kwargs = dict(
+            user_id=user_id,
+            card_id=destination_card_id,
+            description=desc,
+            category_id=category_id,
+            income=amount,
+            expenses=Decimal("0.00"),
+            executed=True,
+        )
+
+        # Execute atomically; persist then set a shared transfer_id (use expense_tx id)
+        expense_tx = Transaction(**expense_kwargs)
+        income_tx = Transaction(**income_kwargs)
+        db.add_all([expense_tx, income_tx])
+        await db.flush()  # get IDs without commit
+        transfer_id = expense_tx.id  # use first id as linkage
+        expense_tx.transfer_id = transfer_id
+        income_tx.transfer_id = transfer_id
+        await db.commit()
+        await db.refresh(expense_tx)
+        await db.refresh(income_tx)
+
+        logger.info(
+            "Transfer completed",
+            extra={
+                "details": {
+                    "event": "transfer",
+                    "extra": {
+                        "user_id": user_id,
+                        "source_card_id": source_card_id,
+                        "destination_card_id": destination_card_id,
+                        "amount": str(amount),
+                        "expense_tx": expense_tx.id,
+                        "income_tx": income_tx.id,
+                    },
+                }
+            },
+        )
+        return expense_tx, income_tx
+
     async def summarize_by_card(
         db: AsyncSession,
         user_id: int,

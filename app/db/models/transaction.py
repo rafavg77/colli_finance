@@ -15,6 +15,7 @@ class Transaction(Base):
     income = Column(Numeric(12, 2), nullable=False, default=0)
     expenses = Column(Numeric(12, 2), nullable=False, default=0)
     executed = Column(Boolean, nullable=False, default=False)
+    transfer_id = Column(Integer, nullable=True, index=True)
 
     user = relationship("User", backref="transactions")
     card = relationship("Card", backref="transactions")

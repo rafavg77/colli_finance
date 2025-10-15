@@ -6,6 +6,7 @@ from typing import Literal
 
 class Settings(BaseSettings):
     app_name: str = Field(alias="APP_NAME")
+    app_version: str = Field(alias="APP_VERSION")
     service_name: str = Field(alias="SERVICE_NAME")
     environment: str = Field(alias="ENVIRONMENT")
     database_use: Literal["dev", "prod"] = Field(alias="DATABASE_USE")

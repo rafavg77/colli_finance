@@ -28,6 +28,7 @@ class TransactionUpdate(BaseModel):
 class TransactionResponse(TransactionBase):
     id: int
     user_id: int
+    transfer_id: int | None = None
     created_at: datetime
     updated_at: datetime
 

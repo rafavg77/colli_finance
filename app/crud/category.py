@@ -9,6 +9,15 @@ logger = get_logger(__name__)
 
 class CategoryCRUD:
     @staticmethod
+    async def get_by_id(db: AsyncSession, category_id: int) -> Category | None:
+        result = await db.execute(select(Category).where(Category.id == category_id))
+        category = result.scalar_one_or_none()
+        logger.debug(
+            "Fetched category by id",
+            extra={"details": {"event": "category_lookup_id", "extra": {"id": category_id, "found": bool(category)}}},
+        )
+        return category
+    @staticmethod
     async def get_by_name(db: AsyncSession, name: str) -> Category | None:
         result = await db.execute(select(Category).where(Category.name == name))
         category = result.scalar_one_or_none()
