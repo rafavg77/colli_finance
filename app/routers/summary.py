@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,9 @@ async def card_summary(
         raise HTTPException(status_code=400, detail="La fecha inicio debe ser menor o igual a la fecha fin")
 
     cards = await CardCRUD.list_by_user(db, current_user.id)
-    summary = await TransactionCRUD.summarize_by_card(db, current_user.id, start, end)
+    # If end_date is a date without time, make it inclusive by moving to the next day (exclusive upper bound)
+    end_bound = end + timedelta(days=1) if len(end_date) <= 10 and "T" not in end_date else end
+    summary = await TransactionCRUD.summarize_by_card(db, current_user.id, start, end_bound)
     summary_map = {item["card_id"]: item for item in summary}
 
     response: list[CardSummary] = []

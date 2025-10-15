@@ -181,7 +181,7 @@ class TransactionCRUD:
                 and_(
                     Transaction.user_id == user_id,
                     Transaction.created_at >= start_date,
-                    Transaction.created_at <= end_date,
+                    Transaction.created_at < end_date,
                 )
             )
             .group_by(Transaction.card_id, Card.card_name, Card.bank_name)

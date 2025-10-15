@@ -42,6 +42,26 @@ En el arranque la aplicación:
 
 Los logs se emiten en formato JSON con campos unificados y se envían a Loki cuando `LOKI_URL` está configurado.
 
+## Adjuntos y carga de archivos
+
+Se soporta la creación de transacciones y transferencias adjuntando un archivo (por ejemplo, una imagen de comprobante):
+
+- `POST /uploads/transactions` (multipart/form-data):
+   - Campos: `file` (archivo), `description`, `card_id`, `category_id?`, `income?`, `expenses?`, `executed?`
+- `POST /uploads/transfers` (multipart/form-data):
+   - Campos: `file` (archivo), `source_card_id`, `destination_card_id`, `amount`, `description?`, `category_id?`
+
+Los archivos se guardan en el directorio definido por la variable `UPLOAD_DIR` (por defecto `uploads`). En las respuestas se devuelve el id del adjunto y la ruta almacenada.
+
+Variables de configuración para cargas
+
+- `UPLOAD_DIR`: directorio donde se almacenan los archivos (por defecto `uploads`).
+- `UPLOAD_MAX_MB`: tamaño máximo de archivo en MB (por defecto `5`).
+- `UPLOAD_ALLOWED_CONTENT_TYPES`: lista CSV de content-types permitidos adicionales (por defecto permite `application/pdf` y cualquier `image/*` no bloqueado).
+- `UPLOAD_BLOCKED_CONTENT_TYPES`: lista CSV de content-types bloqueados (por defecto incluye `image/svg+xml`).
+- `UPLOAD_ALLOWED_EXTS`: lista CSV de extensiones permitidas (por defecto `.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.pdf`).
+- `UPLOAD_BLOCKED_EXTS`: lista CSV de extensiones bloqueadas (por defecto `.svg,.svgz`).
+
 ## Ejecución con Docker
 
 1. Copie el archivo `.env.example` a `.env` y ajuste los valores según su entorno.

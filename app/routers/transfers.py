@@ -187,3 +187,86 @@ async def list_transfers(
             )
         )
     return responses
+
+
+@router.delete("/{transfer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transfer(
+    transfer_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Fetch both transactions for this transfer and user
+    stmt = select(Transaction).where(
+        and_(Transaction.user_id == current_user.id, Transaction.transfer_id == transfer_id)
+    )
+    result = await db.execute(stmt)
+    txs = list(result.scalars().all())
+    if not txs:
+        raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+
+    # Delete both
+    for t in txs:
+        await db.delete(t)
+    await db.commit()
+
+    await register_audit(
+        db,
+        user_id=current_user.id,
+        action="transfer_delete",
+        resource="transaction",
+        details={"transfer_id": transfer_id, "count": len(txs)},
+    )
+    return None
+
+
+@router.patch("/{transfer_id}", response_model=TransferResponse)
+async def update_transfer(
+    transfer_id: int,
+    description: str | None = None,
+    category_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Validate category if provided
+    if category_id is not None:
+        if await CategoryCRUD.get_by_id(db, category_id) is None:
+            raise HTTPException(status_code=404, detail="Categoría no encontrada")
+
+    stmt = select(Transaction).where(
+        and_(Transaction.user_id == current_user.id, Transaction.transfer_id == transfer_id)
+    )
+    result = await db.execute(stmt)
+    txs = list(result.scalars().all())
+    if not txs:
+        raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+
+    # Update both transactions
+    changed = False
+    for t in txs:
+        if description is not None:
+            t.description = description
+            changed = True
+        if category_id is not None:
+            t.category_id = category_id
+            changed = True
+    if changed:
+        await db.commit()
+        # refresh any two to return
+        for t in txs:
+            await db.refresh(t)
+
+        await register_audit(
+            db,
+            user_id=current_user.id,
+            action="transfer_update",
+            resource="transaction",
+            details={"transfer_id": transfer_id, "updated_description": bool(description), "updated_category": bool(category_id)},
+        )
+
+    # Respond with the pair (source/destination heuristic)
+    source_tx = next((t for t in txs if Decimal(str(t.expenses)) > 0), txs[0])
+    destination_tx = next((t for t in txs if Decimal(str(t.income)) > 0 and t is not source_tx), txs[-1])
+    return TransferResponse(
+        source_transaction=TransferTransaction.model_validate(source_tx),
+        destination_transaction=TransferTransaction.model_validate(destination_tx),
+    )

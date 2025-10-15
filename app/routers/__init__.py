@@ -1,3 +1,4 @@
+from .uploads import router as uploads
 __all__ = [
     "auth",
     "users",
@@ -7,4 +8,5 @@ __all__ = [
     "summary",
     "audit",
     "habitos",
+    "transfers",
 ]

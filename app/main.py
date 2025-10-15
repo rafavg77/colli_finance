@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+import os
 from typing import Callable
 import asyncio
 import time
@@ -20,6 +21,7 @@ from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine
 from app.routers import audit, auth, cards, categories, habitos, summary, transactions, users
 from app.routers import transfers
+from app.routers import uploads
 from app.crud.category import CategoryCRUD
 
 settings = get_settings()
@@ -134,8 +136,13 @@ def get_alembic_config() -> Config:
     root_path = Path(__file__).resolve().parent.parent
     alembic_cfg = Config(str(root_path / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(root_path / "alembic"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-    redacted_url = make_url(settings.database_url).render_as_string(hide_password=True)
+    # Build SQLAlchemy URL; if running sync migrations (e.g., tests), switch driver to psycopg2
+    url = make_url(settings.database_url)
+    if os.getenv("ALEMBIC_RUN_SYNC") == "1" and "+asyncpg" in url.drivername:
+        url = url.set(drivername="postgresql+psycopg2")
+    # Escape % for configparser interpolation safety
+    alembic_cfg.set_main_option("sqlalchemy.url", url.render_as_string(hide_password=False).replace('%','%%'))
+    redacted_url = url.render_as_string(hide_password=True)
     logger.debug(
         "Alembic configuration prepared",
         extra={"details": {"event": "alembic_config", "extra": {"database_url": redacted_url}}},
@@ -236,9 +243,12 @@ async def startup_event() -> None:
     create_database_if_not_exists()
     if settings.reset_db_on_start:
         await reset_database()
-    if settings.migrate_on_start:
+    # Allow tests to disable startup-time migrations
+    if settings.migrate_on_start and os.getenv("DISABLE_STARTUP_MIGRATIONS") != "1":
         await apply_migrations()
-    await seed_categories()
+    # Allow tests to disable category seeding to avoid cross-loop DB usage
+    if os.getenv("DISABLE_STARTUP_SEED") != "1":
+        await seed_categories()
     # Re-aplicar configuración de loggers por si Uvicorn alteró propagación/handlers
     configure_logging()
     logger.info(
@@ -262,3 +272,4 @@ app.include_router(summary.router)
 app.include_router(audit.router)
 app.include_router(habitos.router)
 app.include_router(transfers.router)
+app.include_router(uploads)

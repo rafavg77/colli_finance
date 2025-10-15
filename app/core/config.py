@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(alias="ACCESS_TOKEN_EXPIRE_MINUTES", default=30)
     loki_url: str = Field(alias="LOKI_URL")
     log_level: str = Field(alias="LOG_LEVEL", default="INFO")
+    upload_dir: str = Field(alias="UPLOAD_DIR", default="uploads")
+    upload_max_mb: int = Field(alias="UPLOAD_MAX_MB", default=5)
+    upload_allowed_content_types: str | None = Field(alias="UPLOAD_ALLOWED_CONTENT_TYPES", default=None)
+    upload_blocked_content_types: str | None = Field(alias="UPLOAD_BLOCKED_CONTENT_TYPES", default=None)
+    upload_allowed_exts: str | None = Field(alias="UPLOAD_ALLOWED_EXTS", default=None)
+    upload_blocked_exts: str | None = Field(alias="UPLOAD_BLOCKED_EXTS", default=None)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

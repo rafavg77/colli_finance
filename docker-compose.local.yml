@@ -1,16 +1,32 @@
 services:
+  uploads-init:
+    image: busybox
+    user: root
+    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /app/uploads || true"
+    volumes:
+      - uploads_data:/app/uploads
+    restart: "no"
+
   api:
-    build: .
+    build:
+      context: .
+      args:
+        USER_ID: ${UID:-1000}
+        GROUP_ID: ${GID:-1000}
     container_name: colli-finance-api       
     image: colli-finance-api:local
     restart: unless-stopped
     env_file:
       - .env
     depends_on:
+      uploads-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
 
   db:
     image: postgres:15-alpine
@@ -31,3 +47,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -3,6 +3,7 @@ from .category import Category
 from .card import Card
 from .transaction import Transaction
 from .audit import Audit
+from .attachment import Attachment
 
 __all__ = [
     "User",
@@ -10,4 +11,5 @@ __all__ = [
     "Card",
     "Transaction",
     "Audit",
+    "Attachment",
 ]
