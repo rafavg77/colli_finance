@@ -6,6 +6,8 @@ from app.crud.user import UserCRUD
 from app.core.security import verify_password, create_access_token
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, Token
+from app.schemas.user import UserCreate, UserResponse
+from app.services.audit import register_audit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -29,3 +31,20 @@ async def login_with_body(payload: LoginRequest, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
     token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token)
+
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    existing = await UserCRUD.get_by_phone(db, phone=payload.phone)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El teléfono ya está registrado")
+    user = await UserCRUD.create(
+        db,
+        name=payload.name,
+        phone=payload.phone,
+        telegram_id=payload.telegram_id,
+        email=payload.email,
+        password=payload.password,
+    )
+    await register_audit(db, user_id=user.id, action="create", resource="user", details={"user_id": user.id})
+    return user

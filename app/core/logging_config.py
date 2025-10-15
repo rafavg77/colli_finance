@@ -16,7 +16,7 @@ class UTCFormatter(jsonlogger.JsonFormatter):
         log_record.setdefault("app", settings.app_name)
         log_record.setdefault("service", settings.service_name)
         log_record.setdefault("module", record.name)
-        log_record.setdefault("level", record.levelname.lower())
+        log_record["level"] = record.levelname.lower()
         if "details" not in log_record:
             log_record["details"] = {}
 

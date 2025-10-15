@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from typing import Callable
@@ -39,7 +40,11 @@ def get_alembic_config() -> Config:
     root_path = Path(__file__).resolve().parent.parent
     alembic_cfg = Config(str(root_path / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(root_path / "alembic"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url.replace("+asyncpg", ""))
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    logger.debug(
+        "Alembic configuration prepared",
+        extra={"details": {"event": "alembic_config", "extra": {"database_url": settings.database_url}}},
+    )
     return alembic_cfg
 
 
@@ -52,6 +57,10 @@ def create_database_if_not_exists() -> None:
     if url.get_backend_name().startswith("postgresql"):
         database_name = url.database
         if not database_name:
+            logger.warning(
+                "Database name missing in URL",
+                extra={"details": {"event": "database_setup", "extra": {"url": str(url)}}},
+            )
             return
         admin_url = url.set(database="postgres", drivername=url.drivername.replace("+asyncpg", ""))
         engine_admin = create_engine(admin_url)
@@ -64,6 +73,15 @@ def create_database_if_not_exists() -> None:
                     connection.execution_options(isolation_level="AUTOCOMMIT").execute(
                         text(f"CREATE DATABASE \"{sanitize_identifier(database_name)}\"")
                     )
+                    logger.info(
+                        "Database created",
+                        extra={"details": {"event": "database_setup", "extra": {"database": database_name}}},
+                    )
+                else:
+                    logger.debug(
+                        "Database already exists",
+                        extra={"details": {"event": "database_setup", "extra": {"database": database_name}}},
+                    )
         finally:
             engine_admin.dispose()
 
@@ -71,11 +89,13 @@ def create_database_if_not_exists() -> None:
 async def reset_database() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+    logger.warning("Database reset executed", extra={"details": {"event": "database_reset"}})
 
 
 async def apply_migrations() -> None:
     alembic_cfg = get_alembic_config()
-    command.upgrade(alembic_cfg, "head")
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+    logger.info("Migrations applied", extra={"details": {"event": "database_migrate"}})
 
 
 async def seed_categories() -> None:
@@ -84,6 +104,15 @@ async def seed_categories() -> None:
             existing = await CategoryCRUD.get_by_name(session, name)
             if not existing:
                 await CategoryCRUD.create(session, name=name)
+                logger.info(
+                    "Default category created",
+                    extra={"details": {"event": "seed_category", "extra": {"name": name}}},
+                )
+            else:
+                logger.debug(
+                    "Category already present",
+                    extra={"details": {"event": "seed_category", "extra": {"name": name}}},
+                )
 
 
 @app.middleware("http")
@@ -146,6 +175,10 @@ async def json_exception_handler(request: Request, exc: Exception):  # noqa: ANN
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    logger.info(
+        "Startup sequence initiated",
+        extra={"details": {"event": "startup", "extra": {"environment": settings.environment, "stage": "init"}}},
+    )
     create_database_if_not_exists()
     if settings.reset_db_on_start:
         await reset_database()

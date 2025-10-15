@@ -17,7 +17,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url.replace("+asyncpg", ""))
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 
 def run_migrations_offline() -> None:
