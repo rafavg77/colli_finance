@@ -53,13 +53,17 @@ def upgrade() -> None:
         banks.append((parts[0], parts[1], parts[2]))
 
     for name, slug, display_name in banks:
-        # Use direct SQL string substitution for compatibility with sync mode
-        op.execute(
-            f"""
-            INSERT INTO banks (name, slug, display_name, is_active)
-            VALUES ('{name.replace("'", "''")}', '{slug.replace("'", "''")}', '{display_name.replace("'", "''")}', TRUE)
-            ON CONFLICT (slug) DO NOTHING
-            """
+        # Use parameterized query via bind connection for security
+        bind = op.get_bind()
+        bind.execute(
+            sa.text(
+                """
+                INSERT INTO banks (name, slug, display_name, is_active)
+                VALUES (:name, :slug, :display_name, TRUE)
+                ON CONFLICT (slug) DO NOTHING
+                """
+            ),
+            {"name": name, "slug": slug, "display_name": display_name}
         )
 
     # Card enhancements
