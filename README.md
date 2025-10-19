@@ -213,9 +213,9 @@ Al arrancar, la aplicación ejecuta automáticamente:
 1. **Creación de base de datos**: Si no existe, se crea automáticamente
 2. **Migraciones**: Si `MIGRATE_ON_START=true`, ejecuta migraciones pendientes de Alembic
 3. **Reset de esquema** (opcional): Si `RESET_DB_ON_START=true`, elimina y recrea todas las tablas (⚠️ **solo en desarrollo**)
-4. **Seed de categorías**: Inserta categorías predeterminadas (Despensa, Salud, Diversión, Alimenos, Educación, Transporte, Servios)
+4. **Seed de categorías**: Inserta categorías predeterminadas (`Despensa`, `Salud`, `Diversión`, `Alimenos`, `Educación`, `Transporte`, `Servios`)
 
-> **Nota**: Algunas categorías predeterminadas tienen errores tipográficos en el código fuente.
+> **Nota**: Algunas categorías predeterminadas tienen errores tipográficos en el código fuente ("Alimenos" en lugar de "Alimentos" y "Servios" en lugar de "Servicios").
 
 ## 🗄️ Base de Datos
 
