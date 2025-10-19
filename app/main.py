@@ -20,7 +20,7 @@ from app.core.config import get_settings
 from app.core.logging_config import get_logger, configure_logging
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine
-from app.routers import audit, auth, cards, categories, habitos, summary, transactions, users
+from app.routers import audit, auth, banks, cards, categories, listener, summary, transactions, users
 from app.routers import transfers
 from app.routers import uploads
 from app.crud.category import CategoryCRUD
@@ -276,11 +276,12 @@ async def healthcheck():
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(banks.router)
 app.include_router(categories.router)
 app.include_router(cards.router)
 app.include_router(transactions.router)
 app.include_router(summary.router)
 app.include_router(audit.router)
-app.include_router(habitos.router)
+app.include_router(listener.router)
 app.include_router(transfers.router)
 app.include_router(uploads)
