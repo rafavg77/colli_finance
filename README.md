@@ -157,9 +157,10 @@ MIGRATE_ON_START=true
 RESET_DB_ON_START=false  # ¡CUIDADO! Elimina todos los datos
 
 # URLs de conexión (usar asyncpg para SQLAlchemy)
-DATABASE_URL_DEV=postgresql+asyncpg://usuario:password@localhost:5432/colli_finance
-DATABASE_URL_PROD=postgresql+asyncpg://usuario:password@localhost:5432/colli_finance_prod
-DATABASE_URL_TEST=postgresql+asyncpg://usuario:password@localhost:5432/colli_finance_test
+# Para Docker, usar 'db' como host. Para local, usar 'localhost'
+DATABASE_URL_DEV=postgresql+asyncpg://colli:colli@db:5432/colli_finance
+DATABASE_URL_PROD=postgresql+asyncpg://colli:colli@db:5432/colli_finance_prod
+DATABASE_URL_TEST=postgresql+asyncpg://colli:colli@db:5432/colli_finance_test
 ```
 
 ### Variables de Autenticación
@@ -212,7 +213,9 @@ Al arrancar, la aplicación ejecuta automáticamente:
 1. **Creación de base de datos**: Si no existe, se crea automáticamente
 2. **Migraciones**: Si `MIGRATE_ON_START=true`, ejecuta migraciones pendientes de Alembic
 3. **Reset de esquema** (opcional): Si `RESET_DB_ON_START=true`, elimina y recrea todas las tablas (⚠️ **solo en desarrollo**)
-4. **Seed de categorías**: Inserta categorías predeterminadas (Despensa, Salud, Diversión, Alimentos, Educación, Transporte, Servicios)
+4. **Seed de categorías**: Inserta categorías predeterminadas (Despensa, Salud, Diversión, Alimenos, Educación, Transporte, Servios)
+
+> **Nota**: Algunas categorías predeterminadas tienen errores tipográficos en el código fuente.
 
 ## 🗄️ Base de Datos
 
