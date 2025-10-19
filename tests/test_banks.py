@@ -10,9 +10,9 @@ async def test_list_banks(client, async_session):
     user = await UserCRUD.create(
         async_session,
         name="Test User",
-        phone="5550001",
+        phone="5550201",
         telegram_id=None,
-        email="test@example.com",
+        email="testbanks@example.com",
         password="secret",
     )
     token = create_access_token({"sub": str(user.id)})
