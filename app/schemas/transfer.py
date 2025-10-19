@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field
 from pydantic import field_validator
@@ -10,6 +10,7 @@ class TransferRequest(BaseModel):
     amount: Decimal = Field(..., gt=0, description="Amount to transfer (must be > 0)")
     description: str | None = Field(None, description="Optional description for both transactions")
     category_id: int | None = Field(None, description="Optional category ID to set on both transactions")
+    operation_date: date = Field(..., description="Fecha de operación de la transferencia")
 
     @field_validator("amount")
     @classmethod
@@ -27,6 +28,7 @@ class TransferTransaction(BaseModel):
     expenses: Decimal
     executed: bool
     transfer_id: int | None = None
+    operation_date: date
     created_at: datetime
     updated_at: datetime
 

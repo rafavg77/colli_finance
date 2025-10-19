@@ -1,11 +1,20 @@
 PYTHON ?= python
 PIP ?= pip
 
-.PHONY: install-dev test test-docker
+ifneq (,$(wildcard .env))
+include .env
+export $(shell sed -n 's/^\([A-Za-z0-9_]\+\)=.*/\1/p' .env)
+endif
+
+.PHONY: install-dev migrate test test-docker
 
 install-dev:
 	$(PIP) install -r requirements.txt
 	$(PIP) install -r requirements-dev.txt
+
+migrate:
+	PYTHONPATH=$(PYTHONPATH):$(PWD) python -m app.tools.pre_migration_cleanup || true
+	PYTHONPATH=$(PYTHONPATH):$(PWD) alembic upgrade head
 
 test: install-dev
 	pytest
@@ -17,8 +26,8 @@ test-docker:
 	docker compose -f docker-compose.local.yml run --rm --user root \
 	  -v $(PWD):/app \
 	  -e PYTHONPATH=/app \
-	  -e DATABASE_USE=dev \
-	  -e DATABASE_URL_TEST=postgresql+asyncpg://colli:colli@db:5432/colli_finance_test \
+	  -e DATABASE_USE=$(DATABASE_USE) \
+	  -e DATABASE_URL_TEST=$(DATABASE_URL_TEST) \
 	  -e ALEMBIC_RUN_SYNC=1 \
 	  -e DISABLE_STARTUP_SEED=1 \
 	  -e DISABLE_STARTUP_MIGRATIONS=1 \

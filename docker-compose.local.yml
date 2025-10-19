@@ -5,6 +5,7 @@ services:
     command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /app/uploads || true"
     volumes:
       - uploads_data:/app/uploads
+    network_mode: "none"
     restart: "no"
 
   api:
@@ -31,15 +32,15 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-colli_finance}
-      POSTGRES_USER: ${POSTGRES_USER:-colli}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-colli}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-colli} -d ${POSTGRES_DB:-colli_finance}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5

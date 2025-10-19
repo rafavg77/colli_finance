@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Card
@@ -10,7 +11,11 @@ logger = get_logger(__name__)
 class CardCRUD:
     @staticmethod
     async def get_by_id(db: AsyncSession, card_id: int, user_id: int) -> Card | None:
-        result = await db.execute(select(Card).where(Card.id == card_id, Card.user_id == user_id))
+        result = await db.execute(
+            select(Card)
+            .options(selectinload(Card.bank))
+            .where(Card.id == card_id, Card.user_id == user_id)
+        )
         card = result.scalar_one_or_none()
         logger.debug(
             "Fetched card by id",
@@ -25,7 +30,11 @@ class CardCRUD:
 
     @staticmethod
     async def list_by_user(db: AsyncSession, user_id: int) -> list[Card]:
-        result = await db.execute(select(Card).where(Card.user_id == user_id))
+        result = await db.execute(
+            select(Card)
+            .options(selectinload(Card.bank))
+            .where(Card.user_id == user_id)
+        )
         cards = list(result.scalars().all())
         logger.debug(
             "Listed cards for user",
@@ -38,7 +47,7 @@ class CardCRUD:
         card = Card(user_id=user_id, **kwargs)
         db.add(card)
         await db.commit()
-        await db.refresh(card)
+        await db.refresh(card, attribute_names=["bank"])
         logger.info(
             "Card created",
             extra={
@@ -56,7 +65,7 @@ class CardCRUD:
             if value is not None:
                 setattr(card, field, value)
         await db.commit()
-        await db.refresh(card)
+        await db.refresh(card, attribute_names=["bank"])
         logger.info(
             "Card updated",
             extra={

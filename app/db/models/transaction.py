@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -16,6 +16,7 @@ class Transaction(Base):
     expenses = Column(Numeric(12, 2), nullable=False, default=0)
     executed = Column(Boolean, nullable=False, default=False)
     transfer_id = Column(Integer, nullable=True, index=True)
+    operation_date = Column(Date, nullable=False, index=True)
 
     user = relationship("User", backref="transactions")
     card = relationship("Card", backref="transactions")

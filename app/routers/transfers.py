@@ -73,6 +73,7 @@ async def create_transfer(
         amount=amount,
         description=payload.description,
         category_id=payload.category_id,
+        operation_date=payload.operation_date,
     )
 
     # Register audit
@@ -85,6 +86,7 @@ async def create_transfer(
             "source_card_id": payload.source_card_id,
             "destination_card_id": payload.destination_card_id,
             "amount": str(amount),
+            "operation_date": payload.operation_date.isoformat(),
             "transfer_id": expense_tx.transfer_id,
             "expense_tx": expense_tx.id,
             "income_tx": income_tx.id,
@@ -101,6 +103,7 @@ async def create_transfer(
                     "source_card_id": payload.source_card_id,
                     "destination_card_id": payload.destination_card_id,
                     "amount": str(amount),
+                    "operation_date": payload.operation_date.isoformat(),
                 },
             }
         },
@@ -147,12 +150,12 @@ async def list_transfers(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Get page of transfer_ids ordered by latest created_at
+    # Get page of transfer_ids ordered by latest operation_date
     ids_stmt = (
         select(Transaction.transfer_id)
         .where(and_(Transaction.user_id == current_user.id, Transaction.transfer_id.is_not(None)))
         .group_by(Transaction.transfer_id)
-        .order_by(func.max(Transaction.created_at).desc())
+        .order_by(func.max(Transaction.operation_date).desc())
         .limit(limit)
         .offset(offset)
     )
@@ -162,8 +165,10 @@ async def list_transfers(
         return []
 
     # Fetch all transactions for those transfer_ids
-    tx_stmt = select(Transaction).where(
-        and_(Transaction.user_id == current_user.id, Transaction.transfer_id.in_(transfer_ids))
+    tx_stmt = (
+        select(Transaction)
+        .where(and_(Transaction.user_id == current_user.id, Transaction.transfer_id.in_(transfer_ids)))
+        .order_by(Transaction.operation_date.desc(), Transaction.id.desc())
     )
     tx_result = await db.execute(tx_stmt)
     txs = list(tx_result.scalars().all())

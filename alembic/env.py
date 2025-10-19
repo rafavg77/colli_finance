@@ -18,8 +18,8 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-# Only set sqlalchemy.url from settings if not already provided (e.g., by tests)
-if not config.get_main_option("sqlalchemy.url"):
+# Override sqlalchemy.url when unset or left as the default placeholder
+if not config.get_main_option("sqlalchemy.url") or config.get_main_option("sqlalchemy.url") in {"driver_not_set", ""}:
     config.set_main_option("sqlalchemy.url", settings.database_url)
 
 

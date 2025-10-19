@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Card, Transaction
+from app.db.models import Bank, Card, Transaction
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +29,11 @@ class TransactionCRUD:
 
     @staticmethod
     async def list_by_user(db: AsyncSession, user_id: int) -> list[Transaction]:
-        result = await db.execute(select(Transaction).where(Transaction.user_id == user_id))
+        result = await db.execute(
+            select(Transaction)
+            .where(Transaction.user_id == user_id)
+            .order_by(Transaction.operation_date.desc(), Transaction.id.desc())
+        )
         transactions = list(result.scalars().all())
         logger.debug(
             "Listed transactions for user",
@@ -41,6 +45,8 @@ class TransactionCRUD:
 
     @staticmethod
     async def create(db: AsyncSession, user_id: int, **kwargs) -> Transaction:
+        if kwargs.get("operation_date") is None:
+            raise ValueError("operation_date es requerido")
         transaction = Transaction(user_id=user_id, **kwargs)
         db.add(transaction)
         await db.commit()
@@ -101,6 +107,7 @@ class TransactionCRUD:
         amount: Decimal,
         description: str | None = None,
         category_id: int | None = None,
+        operation_date: date | None = None,
     ) -> tuple[Transaction, Transaction]:
         """Create a pair of transactions to represent a transfer between user's own cards.
 
@@ -110,6 +117,7 @@ class TransactionCRUD:
         """
         if source_card_id == destination_card_id:
             raise ValueError("La tarjeta origen y destino no pueden ser la misma")
+        op_date = operation_date or datetime.utcnow().date()
 
         # Prepare payloads
         desc = description or "Transferencia entre cuentas"
@@ -121,6 +129,7 @@ class TransactionCRUD:
             income=Decimal("0.00"),
             expenses=amount,
             executed=True,
+            operation_date=op_date,
         )
         income_kwargs = dict(
             user_id=user_id,
@@ -130,6 +139,7 @@ class TransactionCRUD:
             income=amount,
             expenses=Decimal("0.00"),
             executed=True,
+            operation_date=op_date,
         )
 
         # Execute atomically; persist then set a shared transfer_id (use expense_tx id)
@@ -154,6 +164,7 @@ class TransactionCRUD:
                         "source_card_id": source_card_id,
                         "destination_card_id": destination_card_id,
                         "amount": str(amount),
+                        "operation_date": op_date.isoformat(),
                         "expense_tx": expense_tx.id,
                         "income_tx": income_tx.id,
                     },
@@ -165,26 +176,28 @@ class TransactionCRUD:
     async def summarize_by_card(
         db: AsyncSession,
         user_id: int,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: date,
+        end_date: date,
     ) -> list[dict]:
         stmt = (
             select(
                 Transaction.card_id,
                 Card.card_name,
-                Card.bank_name,
+                Bank.id.label("bank_id"),
+                Bank.display_name.label("bank_display_name"),
                 func.coalesce(func.sum(Transaction.income), 0).label("income_total"),
                 func.coalesce(func.sum(Transaction.expenses), 0).label("expenses_total"),
             )
             .join(Card, Card.id == Transaction.card_id)
+            .join(Bank, Bank.id == Card.bank_id)
             .where(
                 and_(
                     Transaction.user_id == user_id,
-                    Transaction.created_at >= start_date,
-                    Transaction.created_at < end_date,
+                    Transaction.operation_date >= start_date,
+                    Transaction.operation_date < end_date,
                 )
             )
-            .group_by(Transaction.card_id, Card.card_name, Card.bank_name)
+            .group_by(Transaction.card_id, Card.card_name, Bank.id, Bank.display_name)
         )
         result = await db.execute(stmt)
         rows = [dict(row._mapping) for row in result.all()]

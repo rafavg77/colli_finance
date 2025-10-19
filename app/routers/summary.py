@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,9 +36,10 @@ async def card_summary(
         raise HTTPException(status_code=400, detail="La fecha inicio debe ser menor o igual a la fecha fin")
 
     cards = await CardCRUD.list_by_user(db, current_user.id)
-    # If end_date is a date without time, make it inclusive by moving to the next day (exclusive upper bound)
-    end_bound = end + timedelta(days=1) if len(end_date) <= 10 and "T" not in end_date else end
-    summary = await TransactionCRUD.summarize_by_card(db, current_user.id, start, end_bound)
+    # Work with operation_date (DATE); make the upper bound exclusive by advancing a day
+    start_bound = start.date()
+    end_bound = end.date() + timedelta(days=1)
+    summary = await TransactionCRUD.summarize_by_card(db, current_user.id, start_bound, end_bound)
     summary_map = {item["card_id"]: item for item in summary}
 
     response: list[CardSummary] = []
@@ -47,11 +48,24 @@ async def card_summary(
         income_total = Decimal(str(data["income_total"])) if data else Decimal("0.00")
         expenses_total = Decimal(str(data["expenses_total"])) if data else Decimal("0.00")
         balance = income_total - expenses_total
+        bank_display = None
+        bank_id = None
+        if data:
+            bank_display = data.get("bank_display_name")
+            bank_id = data.get("bank_id")
+        if bank_display is None and card.bank is not None:
+            bank_display = card.bank.display_name
+            bank_id = card.bank.id
+        if bank_display is None:
+            bank_display = card.bank_name
+        if bank_id is None:
+            bank_id = card.bank_id
         response.append(
             CardSummary(
                 card_id=card.id,
                 card_name=card.card_name,
-                bank_name=card.bank_name,
+                bank_id=bank_id,
+                bank_name=bank_display,
                 income_total=income_total,
                 expenses_total=expenses_total,
                 balance=balance,

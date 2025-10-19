@@ -1,6 +1,8 @@
 import pytest
 from decimal import Decimal
 from app.crud.user import UserCRUD
+from datetime import date
+from app.crud.bank import BankCRUD
 from app.crud.card import CardCRUD
 from app.crud.transaction import TransactionCRUD
 
@@ -20,8 +22,31 @@ async def test_transfer_happy_path(client, async_session):
     token = create_access_token({"sub": str(user.id)})
     headers = {"Authorization": f"Bearer {token}"}
 
-    src = await CardCRUD.create(async_session, user_id=user.id, bank_name="X", type="debit", card_name="A", alias=None)
-    dst = await CardCRUD.create(async_session, user_id=user.id, bank_name="X", type="debit", card_name="B", alias=None)
+    bank = await BankCRUD.get_by_slug(async_session, "banregio")
+    assert bank is not None
+
+    src = await CardCRUD.create(
+        async_session,
+        user_id=user.id,
+        bank_id=bank.id,
+        type="debit",
+        card_name="A",
+        alias=None,
+        billing_cycle_day=None,
+        payment_due_day=None,
+        grace_days=None,
+    )
+    dst = await CardCRUD.create(
+        async_session,
+        user_id=user.id,
+        bank_id=bank.id,
+        type="debit",
+        card_name="B",
+        alias=None,
+        billing_cycle_day=None,
+        payment_due_day=None,
+        grace_days=None,
+    )
 
     # seed income to source so it has balance
     await TransactionCRUD.create(
@@ -33,6 +58,7 @@ async def test_transfer_happy_path(client, async_session):
         income=Decimal("150.00"),
         expenses=Decimal("0.00"),
         executed=True,
+        operation_date=date.today(),
     )
 
     # Act: transfer 100 from src to dst
@@ -42,6 +68,7 @@ async def test_transfer_happy_path(client, async_session):
         "amount": "100.00",
         "description": "Move to B",
         "category_id": None,
+        "operation_date": date.today().isoformat(),
     }
     res = await client.post("/transfers", json=payload, headers=headers)
 

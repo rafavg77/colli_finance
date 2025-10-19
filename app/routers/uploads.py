@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import date
 from pathlib import Path
 from decimal import Decimal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
@@ -53,6 +54,13 @@ def _validate_file_size(content: bytes) -> None:
         raise HTTPException(status_code=413, detail=f"Archivo demasiado grande. Máximo {settings.upload_max_mb}MB.")
 
 
+def _parse_operation_date(raw: str) -> date:
+    try:
+        return date.fromisoformat(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Fecha de operación inválida") from exc
+
+
 @router.post("/transactions")
 async def upload_and_create_transaction(
     file: UploadFile = File(...),
@@ -62,6 +70,7 @@ async def upload_and_create_transaction(
     income: str = Form("0.00"),
     expenses: str = Form("0.00"),
     executed: bool = Form(True),
+    operation_date: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -77,6 +86,7 @@ async def upload_and_create_transaction(
     _validate_file_size(content)
     _validate_file_type(file, content)
     dest_path.write_bytes(content)
+    op_date = _parse_operation_date(operation_date)
 
     # Create transaction
     tx = await TransactionCRUD.create(
@@ -88,6 +98,7 @@ async def upload_and_create_transaction(
         income=Decimal(income),
         expenses=Decimal(expenses),
         executed=executed,
+        operation_date=op_date,
     )
 
     # Link attachment
@@ -107,6 +118,7 @@ async def upload_and_create_transaction(
         "attachment_id": att.id,
         "filename": att.filename,
         "stored_as": str(dest_path),
+        "operation_date": tx.operation_date.isoformat(),
     }
 
 
@@ -118,6 +130,7 @@ async def upload_and_create_transfer(
     amount: str = Form(...),
     description: str | None = Form(None),
     category_id: int | None = Form(None),
+    operation_date: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -133,6 +146,7 @@ async def upload_and_create_transfer(
     _validate_file_size(content)
     _validate_file_type(file, content)
     dest_path.write_bytes(content)
+    op_date = _parse_operation_date(operation_date)
 
     # Create transfer (pair of transactions)
     expense_tx, income_tx = await TransactionCRUD.transfer(
@@ -143,6 +157,7 @@ async def upload_and_create_transfer(
         amount=Decimal(amount),
         description=description,
         category_id=category_id,
+        operation_date=op_date,
     )
 
     transfer_id = expense_tx.transfer_id
@@ -164,6 +179,7 @@ async def upload_and_create_transfer(
         "attachment_id": att.id,
         "filename": att.filename,
         "stored_as": str(dest_path),
+        "operation_date": expense_tx.operation_date.isoformat(),
     }
 
 @router.get("/transactions/{transaction_id}/attachments")

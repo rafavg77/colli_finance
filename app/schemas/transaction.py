@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel
 
@@ -10,6 +10,7 @@ class TransactionBase(BaseModel):
     income: Decimal = Decimal("0.00")
     expenses: Decimal = Decimal("0.00")
     executed: bool = False
+    operation_date: date
 
 
 class TransactionCreate(TransactionBase):
@@ -23,12 +24,14 @@ class TransactionUpdate(BaseModel):
     income: Decimal | None = None
     expenses: Decimal | None = None
     executed: bool | None = None
+    operation_date: date | None = None
 
 
 class TransactionResponse(TransactionBase):
     id: int
     user_id: int
     transfer_id: int | None = None
+    operation_date: date
     created_at: datetime
     updated_at: datetime
 
