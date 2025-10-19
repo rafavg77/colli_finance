@@ -10,6 +10,7 @@ from typing import Callable
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.engine import create_engine
@@ -27,6 +28,16 @@ from app.crud.category import CategoryCRUD
 settings = get_settings()
 logger = get_logger(__name__)
 app = FastAPI(title=settings.app_name, version=settings.app_version)
+
+# CORS for frontend
+origins = [o.strip() for o in (settings.cors_origins or "").split(",") if o.strip()] or ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next: Callable):

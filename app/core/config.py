@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     upload_blocked_content_types: str | None = Field(alias="UPLOAD_BLOCKED_CONTENT_TYPES", default=None)
     upload_allowed_exts: str | None = Field(alias="UPLOAD_ALLOWED_EXTS", default=None)
     upload_blocked_exts: str | None = Field(alias="UPLOAD_BLOCKED_EXTS", default=None)
+    cors_origins: str = Field(alias="CORS_ORIGINS", default="*")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
