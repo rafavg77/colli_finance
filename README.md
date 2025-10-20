@@ -158,9 +158,7 @@ RESET_DB_ON_START=false  # ¡CUIDADO! Elimina todos los datos
 
 # URLs de conexión (usar asyncpg para SQLAlchemy)
 # Para Docker, usar 'db' como host. Para local, usar 'localhost'
-DATABASE_URL_DEV=postgresql+asyncpg://colli:colli@db:5432/colli_finance
-DATABASE_URL_PROD=postgresql+asyncpg://colli:colli@db:5432/colli_finance_prod
-DATABASE_URL_TEST=postgresql+asyncpg://colli:colli@db:5432/colli_finance_test
+
 ```
 
 ### Variables de Autenticación
@@ -612,7 +610,7 @@ Este proyecto está bajo licencia privada. Todos los derechos reservados.
 
 ## 👤 Autor
 
-Rafael Vargas González ([@rafavg77](https://github.com/rafavg77))
+([@rafavg77](https://github.com/rafavg77))
 
 ## 🤝 Contribuciones
 
