@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     mqtt_username: str = Field(alias="MQTT_USERNAME")
     mqtt_password: str = Field(alias="MQTT_PASSWORD")
     mqtt_topic: str = Field(alias="MQTT_TOPIC", default="colli_finance/email_listener")
+    
+    # Email Listener Configuration
+    email_listener_enabled: bool = Field(alias="EMAIL_LISTENER_ENABLED", default=False)
+    email_listener_poll_interval: int = Field(alias="EMAIL_LISTENER_POLL_INTERVAL", default=60)
+    email_listener_max_results: int = Field(alias="EMAIL_LISTENER_MAX_RESULTS", default=10)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -71,6 +71,13 @@ Colli Finance es una API REST completa para la gestión de finanzas personales q
 - Consulta histórica de acciones por usuario
 - Detalles completos de cada acción (recursos, cambios, timestamps)
 
+### Email Listener Service (Nuevo)
+- Monitoreo automático de correos electrónicos bancarios mediante Gmail API
+- Extracción de datos de transacciones usando plantillas configurables con regex
+- Publicación de eventos a broker MQTT para procesamiento automático
+- Integración con Google OAuth para acceso seguro a Gmail
+- Soporte para múltiples usuarios y configuraciones personalizadas
+
 ### MQTT Event Listener
 - Integración con broker MQTT (ej: Mosquitto)
 - Suscripción al tópico `colli_finance/email_listener`
@@ -96,6 +103,11 @@ Colli Finance es una API REST completa para la gestión de finanzas personales q
 - **python-jose**: Gestión de tokens JWT
 - **passlib + bcrypt**: Hashing seguro de contraseñas
 - **OAuth2**: Esquema de autenticación
+
+### Email Listener
+- **google-auth**: Autenticación con Google OAuth
+- **google-api-python-client**: Cliente de Gmail API
+- **paho-mqtt**: Cliente MQTT para publicación de eventos
 
 ### Logging y Monitoreo
 - **python-json-logger**: Logs estructurados en JSON
@@ -193,6 +205,15 @@ MQTT_USERNAME=                  # Usuario para autenticación MQTT (opcional)
 MQTT_PASSWORD=                  # Contraseña para autenticación MQTT (opcional)
 MQTT_TOPIC=colli_finance/email_listener  # Tópico MQTT a suscribirse
 ```
+
+### Variables de Email Listener Service
+```bash
+EMAIL_LISTENER_ENABLED=false    # Habilitar/deshabilitar el servicio de email listener
+EMAIL_LISTENER_POLL_INTERVAL=60 # Intervalo en segundos para revisar correos
+EMAIL_LISTENER_MAX_RESULTS=10   # Máximo de correos a procesar por verificación
+```
+
+> **Nota**: Para configurar el Email Listener, se requiere configurar las credenciales de Google OAuth a través de los endpoints de `/listener/credentials`. Ver [documentación completa](docs/EMAIL_LISTENER.md).
 
 ### Variables de Carga de Archivos
 ```bash
@@ -321,8 +342,102 @@ alembic downgrade -1  # Retrocede una versión
 ### Auditoría
 - `GET /audit` - Consultar registros de auditoría del usuario
 
+### Email Listener (Nuevo)
+- `GET /listener/credentials` - Obtener credenciales de listener del usuario
+- `POST /listener/credentials` - Crear credenciales de listener
+- `PATCH /listener/credentials` - Actualizar credenciales de listener
+- `DELETE /listener/credentials` - Eliminar credenciales de listener
+- `GET /listener/templates` - Listar plantillas de email
+- `POST /listener/templates` - Crear plantilla de email
+- `GET /listener/templates/{template_id}` - Obtener plantilla por ID
+- `PATCH /listener/templates/{template_id}` - Actualizar plantilla
+- `DELETE /listener/templates/{template_id}` - Eliminar plantilla
+- `GET /listener/configs` - Listar configuraciones de listener
+- `POST /listener/configs` - Crear configuración de listener
+- `GET /listener/configs/{config_id}` - Obtener configuración por ID
+- `PATCH /listener/configs/{config_id}` - Actualizar configuración
+- `DELETE /listener/configs/{config_id}` - Eliminar configuración
+
 ### Hábitos (Deprecado)
 - `POST /habitos/registrar` - Registrar hábito (pendiente de eliminación)
+
+## 🔌 Email Listener Service
+
+La API incluye un servicio de Email Listener que monitorea la bandeja de entrada de Gmail del usuario para detectar correos de transacciones bancarias y publicarlos automáticamente como eventos MQTT.
+
+### Arquitectura
+
+```
+Gmail Inbox → Email Listener Service → MQTT Broker → MQTT Listener Service → Transaction Database
+```
+
+### Características
+
+- **Monitoreo Automático**: Revisa la bandeja de entrada de Gmail periódicamente
+- **Google OAuth**: Autenticación segura usando credenciales de Google
+- **Plantillas Configurables**: Extracción de datos mediante expresiones regulares
+- **Publicación MQTT**: Envío de eventos al broker MQTT para procesamiento
+- **Multi-usuario**: Soporte para múltiples usuarios con configuraciones independientes
+- **Logs Estructurados**: Registro detallado de todas las operaciones
+
+### Configuración
+
+1. **Habilitar el servicio** en `.env`:
+   ```bash
+   EMAIL_LISTENER_ENABLED=true
+   EMAIL_LISTENER_POLL_INTERVAL=60  # Revisar cada 60 segundos
+   EMAIL_LISTENER_MAX_RESULTS=10    # Máximo 10 correos por verificación
+   ```
+
+2. **Configurar credenciales de Google OAuth** mediante los endpoints de `/listener/credentials`
+
+3. **Crear plantillas de email** para cada banco usando expresiones regulares para extracción de datos
+
+4. **Vincular plantillas con tarjetas** mediante configuraciones de listener
+
+### Formato del Evento Publicado
+
+El Email Listener publica eventos al topic MQTT con el siguiente formato:
+
+```json
+{
+  "id_usuario": 1,
+  "correo_usuario": "user@example.com",
+  "tarjetas": [
+    {
+      "id_tarjeta": 1,
+      "transaction": [
+        {
+          "amount": "100.00",
+          "description": "Compra en tienda",
+          "income": "",
+          "expense": "100.00",
+          "type": "expense",
+          "operation_date": "2025-10-19"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Documentación Completa
+
+Para información detallada sobre configuración, plantillas, patrones de extracción y troubleshooting, consulta la [documentación completa del Email Listener](docs/EMAIL_LISTENER.md).
+
+### Deshabilitar el Servicio
+
+Para deshabilitar temporalmente:
+
+```bash
+DISABLE_EMAIL_LISTENER=1 uvicorn app.main:app --reload
+```
+
+O en `.env`:
+
+```bash
+EMAIL_LISTENER_ENABLED=false
+```
 
 ## 🔌 MQTT Event Listener
 
