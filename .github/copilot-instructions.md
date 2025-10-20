@@ -58,6 +58,7 @@ tests/              # Automated tests (pytest)
 Example:
 ```python
 async def get_transaction(
+    transaction_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TransactionResponse:
@@ -124,6 +125,17 @@ class TransactionResponse(BaseModel):
 
 Example router:
 ```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.dependencies import get_current_user
+from app.crud.card import CardCRUD
+from app.crud.transaction import TransactionCRUD
+from app.db.models import User
+from app.db.session import get_db
+from app.schemas.transaction import TransactionCreate, TransactionResponse
+from app.services.audit import register_audit
+
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
@@ -157,12 +169,13 @@ async def create_transaction(
 
 ## Logging
 
-- **Use structured logging** with JSON format (`python-json-logger`)
-- **Use `get_logger(__name__)`** to get module-specific loggers
+- **Use structured logging** with JSON format via custom configuration in `app/core/logging_config.py`
+- **Use `get_logger(__name__)`** to get module-specific loggers (configured with `python-json-logger`)
 - **Log important events** with appropriate levels (DEBUG, INFO, WARNING, ERROR)
-- **Include context** in log messages using the `extra` parameter
+- **Include context** in log messages using the `extra` parameter with a `details` dict
 - **Log at INFO level** for business operations
 - **Log at DEBUG level** for detailed debugging information
+- Logs can be sent to **Grafana Loki** if configured via `LOKI_URL` environment variable
 
 Example:
 ```python
