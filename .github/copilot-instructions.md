@@ -172,10 +172,23 @@ async def create_transaction(
 - **Use structured logging** with JSON format via custom configuration in `app/core/logging_config.py`
 - **Use `get_logger(__name__)`** to get module-specific loggers (configured with `python-json-logger`)
 - **Log important events** with appropriate levels (DEBUG, INFO, WARNING, ERROR)
-- **Include context** in log messages using the `extra` parameter with a `details` dict
+- **Include context** in log messages using the `extra` parameter with a nested structure: `extra={"details": {"event": "event_name", "extra": {...}}}`
 - **Log at INFO level** for business operations
 - **Log at DEBUG level** for detailed debugging information
 - Logs can be sent to **Grafana Loki** if configured via `LOKI_URL` environment variable
+
+Logging structure:
+```python
+extra={
+    "details": {
+        "event": "event_name",           # Event identifier
+        "extra": {                        # Additional context data
+            "key": "value",
+            ...
+        }
+    }
+}
+```
 
 Example:
 ```python
