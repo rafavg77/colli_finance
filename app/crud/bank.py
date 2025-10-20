@@ -47,3 +47,37 @@ class BankCRUD:
             extra={"details": {"event": "bank_list", "extra": {"count": len(banks)}}},
         )
         return banks
+
+    @staticmethod
+    async def create(db: AsyncSession, **kwargs) -> Bank:
+        bank = Bank(**kwargs)
+        db.add(bank)
+        await db.commit()
+        await db.refresh(bank)
+        logger.info(
+            "Bank created",
+            extra={"details": {"event": "bank_create", "extra": {"bank_id": bank.id, "slug": bank.slug}}},
+        )
+        return bank
+
+    @staticmethod
+    async def update(db: AsyncSession, bank: Bank, **kwargs) -> Bank:
+        for field, value in kwargs.items():
+            if value is not None:
+                setattr(bank, field, value)
+        await db.commit()
+        await db.refresh(bank)
+        logger.info(
+            "Bank updated",
+            extra={"details": {"event": "bank_update", "extra": {"bank_id": bank.id}}},
+        )
+        return bank
+
+    @staticmethod
+    async def delete(db: AsyncSession, bank: Bank) -> None:
+        await db.delete(bank)
+        await db.commit()
+        logger.warning(
+            "Bank deleted",
+            extra={"details": {"event": "bank_delete", "extra": {"bank_id": bank.id}}},
+        )

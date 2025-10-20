@@ -53,7 +53,9 @@ def upgrade() -> None:
         banks.append((parts[0], parts[1], parts[2]))
 
     for name, slug, display_name in banks:
-        op.execute(
+        # Use parameterized query via bind connection for security
+        bind = op.get_bind()
+        bind.execute(
             sa.text(
                 """
                 INSERT INTO banks (name, slug, display_name, is_active)
@@ -61,7 +63,7 @@ def upgrade() -> None:
                 ON CONFLICT (slug) DO NOTHING
                 """
             ),
-            {"name": name, "slug": slug, "display_name": display_name},
+            {"name": name, "slug": slug, "display_name": display_name}
         )
 
     # Card enhancements
