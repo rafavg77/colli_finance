@@ -13,3 +13,4 @@ pydantic[email]==2.6.4
 pydantic-settings==2.2.1
 python-multipart==0.0.9
 starlette==0.36.3
+paho-mqtt==1.6.1
