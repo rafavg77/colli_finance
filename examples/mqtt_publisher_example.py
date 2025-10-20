@@ -48,7 +48,8 @@ def create_sample_event(user_id: int, card_id: int, email: str):
     }
 
 
-def publish_event(broker_host="localhost", broker_port=1883, topic="colli_finance/email_listener"):
+def publish_event(broker_host="localhost", broker_port=1883, topic="colli_finance/email_listener", 
+                  user_id=1, card_id=1, email="test@example.com"):
     """Publish a test event to the MQTT broker"""
     
     # Create MQTT client
@@ -59,11 +60,10 @@ def publish_event(broker_host="localhost", broker_port=1883, topic="colli_financ
     client.connect(broker_host, broker_port, keepalive=60)
     
     # Create sample event
-    # NOTE: Replace these values with actual user_id and card_id from your database
     event = create_sample_event(
-        user_id=1,
-        card_id=1,
-        email="test@example.com"
+        user_id=user_id,
+        card_id=card_id,
+        email=email
     )
     
     # Convert to JSON
@@ -99,7 +99,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     try:
-        publish_event(args.host, args.port, args.topic)
+        publish_event(
+            args.host, 
+            args.port, 
+            args.topic,
+            args.user_id,
+            args.card_id,
+            args.email
+        )
     except Exception as e:
         print(f"Error: {e}")
         exit(1)
