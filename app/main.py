@@ -24,6 +24,7 @@ from app.routers import audit, auth, banks, cards, categories, listener, summary
 from app.routers import transfers
 from app.routers import uploads
 from app.crud.category import CategoryCRUD
+from app.services.mqtt_listener import mqtt_listener_service
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -260,12 +261,22 @@ async def startup_event() -> None:
     # Allow tests to disable category seeding to avoid cross-loop DB usage
     if os.getenv("DISABLE_STARTUP_SEED") != "1":
         await seed_categories()
+    # Start MQTT listener service
+    if os.getenv("DISABLE_MQTT_LISTENER") != "1":
+        mqtt_listener_service.start()
     # Re-aplicar configuración de loggers por si Uvicorn alteró propagación/handlers
     configure_logging()
     logger.info(
         "Startup completed",
         extra={"details": {"event": "startup", "extra": {"environment": settings.environment}}},
     )
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    logger.info("Shutdown sequence initiated")
+    mqtt_listener_service.stop()
+    logger.info("Shutdown completed")
 
 
 @app.get("/health", tags=["System"])

@@ -71,6 +71,13 @@ Colli Finance es una API REST completa para la gestión de finanzas personales q
 - Consulta histórica de acciones por usuario
 - Detalles completos de cada acción (recursos, cambios, timestamps)
 
+### MQTT Event Listener
+- Integración con broker MQTT (ej: Mosquitto)
+- Suscripción al tópico `colli_finance/email_listener`
+- Procesamiento automático de transacciones desde eventos MQTT
+- Registro de auditoría con origen MQTT
+- Validación de payload con esquemas Pydantic
+
 ## 🛠️ Tecnologías Utilizadas
 
 ### Backend
@@ -176,6 +183,15 @@ BANKS_LIST=Banregio:banregio:Banregio;Banorte:banorte:Banorte;Santander:santande
 ### Variables de Logging (opcional)
 ```bash
 LOKI_URL=http://localhost:3100/loki/api/v1/push
+```
+
+### Variables de MQTT Event Listener
+```bash
+MQTT_BROKER_HOST=localhost     # Host del broker MQTT (ej: mosquitto)
+MQTT_BROKER_PORT=1883          # Puerto del broker MQTT
+MQTT_USERNAME=                  # Usuario para autenticación MQTT (opcional)
+MQTT_PASSWORD=                  # Contraseña para autenticación MQTT (opcional)
+MQTT_TOPIC=colli_finance/email_listener  # Tópico MQTT a suscribirse
 ```
 
 ### Variables de Carga de Archivos
@@ -307,6 +323,129 @@ alembic downgrade -1  # Retrocede una versión
 
 ### Hábitos (Deprecado)
 - `POST /habitos/registrar` - Registrar hábito (pendiente de eliminación)
+
+## 🔌 MQTT Event Listener
+
+La API incluye un listener de eventos MQTT que se conecta automáticamente a un broker MQTT (como Mosquitto) y procesa transacciones recibidas desde eventos externos.
+
+### Configuración
+
+El listener MQTT se configura mediante variables de entorno en el archivo `.env`:
+
+```bash
+MQTT_BROKER_HOST=localhost
+MQTT_BROKER_PORT=1883
+MQTT_USERNAME=tu_usuario
+MQTT_PASSWORD=tu_contraseña
+MQTT_TOPIC=colli_finance/email_listener
+```
+
+### Formato del Mensaje
+
+El listener espera mensajes en el tópico configurado con el siguiente formato JSON:
+
+```json
+{
+  "id_usuario": 1,
+  "correo_usuario": "tu_email@gmail.com",
+  "tarjetas": [
+    {
+      "id_tarjeta": 1,
+      "transaction": [
+        {
+          "amount": "100.00",
+          "description": "Pago recibido",
+          "income": "100.00",
+          "expense": "",
+          "type": "income",
+          "operation_date": "2025-10-19"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Campos del Mensaje
+
+- **id_usuario**: ID del usuario en la base de datos
+- **correo_usuario**: Email del usuario
+- **tarjetas**: Array de tarjetas con sus transacciones
+  - **id_tarjeta**: ID de la tarjeta en la base de datos
+  - **transaction**: Array de transacciones
+    - **amount**: Monto de la transacción (opcional)
+    - **description**: Descripción de la transacción
+    - **income**: Monto de ingreso (usar "" para 0)
+    - **expense**: Monto de egreso (usar "" para 0)
+    - **type**: Tipo de transacción ("income" o "expense")
+    - **operation_date**: Fecha de la operación (formato: YYYY-MM-DD)
+
+### Procesamiento de Eventos
+
+Cuando el listener recibe un mensaje:
+
+1. **Validación**: Valida el payload contra el esquema Pydantic
+2. **Verificación**: Verifica que la tarjeta existe y pertenece al usuario
+3. **Creación**: Crea la transacción en la base de datos
+4. **Auditoría**: Registra en la tabla de auditoría con `source: "mqtt_event"`
+5. **Logging**: Emite logs estructurados de todo el proceso
+
+### Auditoría MQTT
+
+Todas las transacciones creadas desde eventos MQTT incluyen un registro de auditoría especial:
+
+```json
+{
+  "action": "create",
+  "resource": "transaction",
+  "details": {
+    "transaction_id": 123,
+    "source": "mqtt_event",
+    "mqtt_topic": "colli_finance/email_listener",
+    "email": "usuario@example.com",
+    "card_id": 1,
+    "type": "income"
+  }
+}
+```
+
+### Ciclo de Vida
+
+El listener MQTT:
+- **Inicia** automáticamente al arrancar la aplicación
+- **Reconecta** automáticamente si se pierde la conexión
+- **Detiene** correctamente al apagar la aplicación
+
+Para deshabilitar el listener durante el desarrollo o testing:
+
+```bash
+DISABLE_MQTT_LISTENER=1 uvicorn app.main:app --reload
+```
+
+### Ejemplo con Mosquitto
+
+Para probar el listener con Mosquitto:
+
+```bash
+# Instalar Mosquitto
+sudo apt-get install mosquitto mosquitto-clients
+
+# Publicar mensaje de prueba
+mosquitto_pub -h localhost -p 1883 -t "colli_finance/email_listener" -m '{
+  "id_usuario": 1,
+  "correo_usuario": "test@example.com",
+  "tarjetas": [{
+    "id_tarjeta": 1,
+    "transaction": [{
+      "description": "Test transaction",
+      "income": "100.00",
+      "expense": "",
+      "type": "income",
+      "operation_date": "2025-10-19"
+    }]
+  }]
+}'
+```
 
 ## 🔐 Autenticación y Seguridad
 
