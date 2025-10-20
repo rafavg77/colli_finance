@@ -1,84 +1,622 @@
 # Colli Finance API
 
-API de finanzas personales construida con FastAPI, SQLAlchemy y PostgreSQL. Incluye autenticación basada en JWT, auditoría y registros estructurados en JSON compatibles con Loki.
+API de finanzas personales construida con FastAPI, SQLAlchemy y PostgreSQL para gestionar de manera integral tus finanzas personales. La aplicación proporciona un sistema completo de gestión financiera con autenticación JWT, auditoría de acciones, registro estructurado de logs y soporte para múltiples bancos y tarjetas.
 
-## Requisitos
+## 📋 Tabla de Contenidos
 
-- Python 3.11+
-- PostgreSQL 13+
+- [Descripción del Proyecto](#descripción-del-proyecto)
+- [Características Principales](#características-principales)
+- [Tecnologías Utilizadas](#tecnologías-utilizadas)
+- [Requisitos](#requisitos)
+- [Instalación](#instalación)
+- [Configuración](#configuración)
+- [Ejecución](#ejecución)
+- [Base de Datos](#base-de-datos)
+- [API Endpoints](#api-endpoints)
+- [Autenticación y Seguridad](#autenticación-y-seguridad)
+- [Adjuntos y Carga de Archivos](#adjuntos-y-carga-de-archivos)
+- [Logging y Monitoreo](#logging-y-monitoreo)
+- [Docker](#docker)
+- [Testing](#testing)
+- [Desarrollo](#desarrollo)
 
-## Instalación
+## 📖 Descripción del Proyecto
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+Colli Finance es una API REST completa para la gestión de finanzas personales que permite a los usuarios:
 
-Cree un archivo `.env` (se incluye un ejemplo en el repositorio) y configure las variables necesarias para su entorno, incluyendo las URLs de las bases de datos de desarrollo y producción.
+- **Gestionar múltiples tarjetas bancarias**: Soporte para tarjetas de débito y crédito de diferentes bancos
+- **Registrar transacciones**: Control detallado de ingresos y gastos con categorización
+- **Realizar transferencias**: Movimientos entre tarjetas propias con registro automático
+- **Adjuntar comprobantes**: Carga de archivos (imágenes, PDFs) asociados a transacciones
+- **Generar reportes**: Resúmenes financieros por tarjeta y período
+- **Auditar acciones**: Registro completo de todas las operaciones realizadas
+- **Categorizar gastos**: Sistema de categorías predefinidas y personalizables
 
-## Ejecución
+## ✨ Características Principales
 
-```bash
-uvicorn app.main:app --reload
-```
+### Gestión de Usuarios
+- Registro y autenticación de usuarios con JWT
+- Soporte para login con correo electrónico o número de teléfono
+- Perfil de usuario con información personal
+- Auditoría completa de acciones del usuario
 
-En el arranque la aplicación:
+### Gestión de Tarjetas
+- Soporte para múltiples bancos configurables (Banregio, Banorte, Santander, HeyBanco, etc.)
+- Tarjetas de débito y crédito con validaciones específicas
+- Cálculo automático de saldos disponibles
+- Sincronización automática de información bancaria mediante triggers
+- Límite de crédito y seguimiento de utilización
 
-1. Crea la base de datos si no existe.
-2. Ejecuta las migraciones de Alembic (`MIGRATE_ON_START=true`).
-3. Opcionalmente reinicia el esquema (`RESET_DB_ON_START=true`).
-4. Inserta las categorías predeterminadas.
+### Transacciones
+- Registro de ingresos y gastos
+- Fecha de operación obligatoria para precisión histórica
+- Categorización de transacciones
+- Adjuntos de comprobantes (imágenes, PDFs)
+- Marcado de transacciones ejecutadas vs. pendientes
 
-## Endpoints principales
+### Transferencias
+- Transferencias entre tarjetas propias
+- Validación automática de saldos
+- Registro doble (egreso en origen, ingreso en destino)
+- Vinculación de comprobantes
+- Categorización opcional
 
-- `GET /health`: verificación de estado.
-- `POST /auth/login`: autenticación mediante número de teléfono y contraseña.
-- `POST /users`: registro de usuarios.
-- `POST /habitos/registrar`: registra hábitos asociados al usuario autenticado (auditable).
-- CRUD completo para usuarios, categorías, tarjetas y transacciones.
-- `GET /summary/cards`: resumen de saldos por tarjeta para un rango de fechas.
-- `GET /audit`: consulta de registros de auditoría del usuario.
+### Reportes y Resúmenes
+- Resumen de saldos por tarjeta en rango de fechas
+- Agregaciones de ingresos, gastos y saldos
+- Consulta de auditoría de acciones
 
-Los logs se emiten en formato JSON con campos unificados y se envían a Loki cuando `LOKI_URL` está configurado.
+### Auditoría
+- Registro automático de todas las operaciones críticas
+- Consulta histórica de acciones por usuario
+- Detalles completos de cada acción (recursos, cambios, timestamps)
 
-## Adjuntos y carga de archivos
+## 🛠️ Tecnologías Utilizadas
 
-Se soporta la creación de transacciones y transferencias adjuntando un archivo (por ejemplo, una imagen de comprobante):
+### Backend
+- **FastAPI**: Framework web moderno y de alto rendimiento
+- **Python 3.11+**: Lenguaje de programación
+- **SQLAlchemy 2.0**: ORM asíncrono para manejo de base de datos
+- **Alembic**: Gestión de migraciones de base de datos
+- **Pydantic**: Validación de datos y configuración
 
-- `POST /uploads/transactions` (multipart/form-data):
-   - Campos: `file` (archivo), `description`, `card_id`, `category_id?`, `income?`, `expenses?`, `executed?`
-- `POST /uploads/transfers` (multipart/form-data):
-   - Campos: `file` (archivo), `source_card_id`, `destination_card_id`, `amount`, `description?`, `category_id?`
+### Base de Datos
+- **PostgreSQL 13+**: Base de datos relacional
+- **asyncpg**: Driver asíncrono de PostgreSQL
+- **psycopg2**: Driver síncrono para migraciones
 
-Los archivos se guardan en el directorio definido por la variable `UPLOAD_DIR` (por defecto `uploads`). En las respuestas se devuelve el id del adjunto y la ruta almacenada.
+### Seguridad
+- **python-jose**: Gestión de tokens JWT
+- **passlib + bcrypt**: Hashing seguro de contraseñas
+- **OAuth2**: Esquema de autenticación
 
-Variables de configuración para cargas
+### Logging y Monitoreo
+- **python-json-logger**: Logs estructurados en JSON
+- **Loki**: Agregación y consulta de logs (opcional)
 
-- `UPLOAD_DIR`: directorio donde se almacenan los archivos (por defecto `uploads`).
-- `UPLOAD_MAX_MB`: tamaño máximo de archivo en MB (por defecto `5`).
-- `UPLOAD_ALLOWED_CONTENT_TYPES`: lista CSV de content-types permitidos adicionales (por defecto permite `application/pdf` y cualquier `image/*` no bloqueado).
-- `UPLOAD_BLOCKED_CONTENT_TYPES`: lista CSV de content-types bloqueados (por defecto incluye `image/svg+xml`).
-- `UPLOAD_ALLOWED_EXTS`: lista CSV de extensiones permitidas (por defecto `.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.pdf`).
-- `UPLOAD_BLOCKED_EXTS`: lista CSV de extensiones bloqueadas (por defecto `.svg,.svgz`).
+### Desarrollo y Testing
+- **pytest**: Framework de testing
+- **pytest-asyncio**: Soporte para tests asíncronos
+- **Docker**: Containerización
+- **Docker Compose**: Orquestación de servicios
 
-## Ejecución con Docker
+## 📦 Requisitos
 
-1. Copie el archivo `.env.example` a `.env` y ajuste los valores según su entorno.
-2. Construya y levante los servicios con la imagen local:
+- Python 3.11 o superior
+- PostgreSQL 13 o superior
+- Docker y Docker Compose (opcional, para deployment)
 
+## 🚀 Instalación
+
+### Instalación Local
+
+1. **Clonar el repositorio**:
    ```bash
-   docker compose -f docker-compose.local.yml up --build
+   git clone https://github.com/rafavg77/colli_finance.git
+   cd colli_finance
    ```
 
-   La API quedará disponible en `http://localhost:8000` y la base de datos en el puerto `5432`.
-
-3. Si ya cuenta con una imagen publicada en Docker Hub, puede ejecutarla con:
-
+2. **Crear entorno virtual**:
    ```bash
-   docker compose -f docker-compose.dockerhub.yml up
+   python -m venv .venv
+   source .venv/bin/activate  # En Windows: .venv\Scripts\activate
    ```
 
-   Sustituya `your-dockerhub-user/colli-finance-api:latest` por la referencia de su imagen.
+3. **Instalar dependencias**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Ambos archivos de Compose incluyen servicios para PostgreSQL y Loki, y cargan automáticamente las variables del archivo `.env`.
+4. **Instalar dependencias de desarrollo** (opcional):
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+
+## ⚙️ Configuración
+
+1. **Copiar el archivo de ejemplo de variables de entorno**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Configurar variables de entorno en `.env`**:
+
+### Variables de Aplicación
+```bash
+APP_NAME=Colli Finance API
+SERVICE_NAME=colli-finance
+ENVIRONMENT=local  # local, dev, prod
+LOG_LEVEL=INFO     # DEBUG, INFO, WARNING, ERROR
+```
+
+### Variables de Base de Datos
+```bash
+DATABASE_USE=dev   # dev, prod, test
+DATABASE_ECHO=false
+MIGRATE_ON_START=true
+RESET_DB_ON_START=false  # ¡CUIDADO! Elimina todos los datos
+
+# URLs de conexión (usar asyncpg para SQLAlchemy)
+# Para Docker, usar 'db' como host. Para local, usar 'localhost'
+
+```
+
+### Variables de Autenticación
+```bash
+SECRET_KEY=tu-clave-secreta-muy-segura-aqui  # ¡Cambiar en producción!
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+### Variables de Bancos
+```bash
+# Formato: Nombre:code:display_name;...
+BANKS_LIST=Banregio:banregio:Banregio;Banorte:banorte:Banorte;Santander:santander:Santander;HeyBanco:heybanco:HeyBanco
+```
+
+### Variables de Logging (opcional)
+```bash
+LOKI_URL=http://localhost:3100/loki/api/v1/push
+```
+
+### Variables de Carga de Archivos
+```bash
+UPLOAD_DIR=uploads
+UPLOAD_MAX_MB=5
+UPLOAD_ALLOWED_CONTENT_TYPES=application/pdf
+UPLOAD_BLOCKED_CONTENT_TYPES=image/svg+xml
+UPLOAD_ALLOWED_EXTS=.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.pdf
+UPLOAD_BLOCKED_EXTS=.svg,.svgz
+```
+
+## ▶️ Ejecución
+
+### Desarrollo Local
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+La API estará disponible en `http://localhost:8000`
+
+### Documentación Interactiva
+
+Una vez iniciada la aplicación, puedes acceder a:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+### Proceso de Inicio
+
+Al arrancar, la aplicación ejecuta automáticamente:
+
+1. **Creación de base de datos**: Si no existe, se crea automáticamente
+2. **Migraciones**: Si `MIGRATE_ON_START=true`, ejecuta migraciones pendientes de Alembic
+3. **Reset de esquema** (opcional): Si `RESET_DB_ON_START=true`, elimina y recrea todas las tablas (⚠️ **solo en desarrollo**)
+4. **Seed de categorías**: Inserta categorías predeterminadas (`Despensa`, `Salud`, `Diversión`, `Alimenos`, `Educación`, `Transporte`, `Servios`)
+
+> **Nota**: Algunas categorías predeterminadas tienen errores tipográficos en el código fuente ("Alimenos" en lugar de "Alimentos" y "Servios" en lugar de "Servicios").
+
+## 🗄️ Base de Datos
+
+### Modelos Principales
+
+- **User**: Usuarios del sistema
+- **Bank**: Catálogo de bancos
+- **Card**: Tarjetas bancarias (débito/crédito)
+- **Category**: Categorías de transacciones
+- **Transaction**: Transacciones (ingresos/gastos)
+- **Attachment**: Archivos adjuntos
+- **Audit**: Registro de auditoría
+- **Listener**: Configuración para listeners/webhooks
+
+### Migraciones
+
+#### Crear una nueva migración:
+```bash
+make migrate
+# o manualmente:
+alembic revision --autogenerate -m "descripcion del cambio"
+alembic upgrade head
+```
+
+#### Ejecutar migraciones:
+```bash
+make migrate
+```
+
+#### Ver historial de migraciones:
+```bash
+alembic history
+```
+
+#### Revertir migración:
+```bash
+alembic downgrade -1  # Retrocede una versión
+```
+
+## 🔌 API Endpoints
+
+### Sistema
+- `GET /health` - Verificación de estado de la API
+
+### Autenticación
+- `POST /auth/register` - Registro de nuevos usuarios
+- `POST /auth/login` - Login con email y contraseña
+- `POST /auth/login-phone` - Login con teléfono y contraseña
+
+### Usuarios
+- `GET /users` - Listar usuarios (admin)
+- `GET /users/me` - Obtener perfil del usuario autenticado
+- `POST /users` - Crear usuario
+- `PATCH /users/{user_id}` - Actualizar usuario
+- `DELETE /users/{user_id}` - Eliminar usuario
+
+### Categorías
+- `GET /categories` - Listar todas las categorías
+- `GET /categories/{category_id}` - Obtener categoría por ID
+- `POST /categories` - Crear nueva categoría
+- `PATCH /categories/{category_id}` - Actualizar categoría
+- `DELETE /categories/{category_id}` - Eliminar categoría
+
+### Tarjetas
+- `GET /cards` - Listar tarjetas del usuario
+- `GET /cards/{card_id}` - Obtener tarjeta por ID
+- `POST /cards` - Crear nueva tarjeta
+- `PATCH /cards/{card_id}` - Actualizar tarjeta
+- `DELETE /cards/{card_id}` - Eliminar tarjeta
+
+### Transacciones
+- `GET /transactions` - Listar transacciones del usuario
+- `GET /transactions/{transaction_id}` - Obtener transacción por ID
+- `POST /transactions` - Crear nueva transacción
+- `PATCH /transactions/{transaction_id}` - Actualizar transacción
+- `DELETE /transactions/{transaction_id}` - Eliminar transacción
+
+### Transferencias
+- `POST /transfers` - Crear transferencia entre tarjetas propias
+- `GET /transfers/{source_tx_id}/{destination_tx_id}` - Obtener detalles de transferencia
+
+### Carga de Archivos
+- `POST /uploads/transactions` - Crear transacción con archivo adjunto
+- `POST /uploads/transfers` - Crear transferencia con archivo adjunto
+
+### Resúmenes
+- `GET /summary/cards` - Obtener resumen de saldos por tarjeta (requiere parámetros `start_date` y `end_date`)
+
+### Auditoría
+- `GET /audit` - Consultar registros de auditoría del usuario
+
+### Hábitos (Deprecado)
+- `POST /habitos/registrar` - Registrar hábito (pendiente de eliminación)
+
+## 🔐 Autenticación y Seguridad
+
+### JWT (JSON Web Tokens)
+
+La API utiliza autenticación basada en JWT:
+
+1. **Registro/Login**: Obtén un token de acceso
+   ```bash
+   curl -X POST "http://localhost:8000/auth/login" \
+     -H "Content-Type: application/json" \
+     -d '{"email": "usuario@example.com", "password": "contraseña"}'
+   ```
+
+2. **Uso del token**: Incluye el token en el header de autorización
+   ```bash
+   curl -X GET "http://localhost:8000/users/me" \
+     -H "Authorization: Bearer tu-token-jwt-aqui"
+   ```
+
+### Hashing de Contraseñas
+
+- Las contraseñas se almacenan usando bcrypt con salt automático
+- Nunca se almacenan contraseñas en texto plano
+- El factor de trabajo de bcrypt garantiza protección contra ataques de fuerza bruta
+
+### Middleware de Seguridad
+
+- **CORS**: Configurado para permitir orígenes específicos
+- **Request Logging**: Todas las peticiones se registran con detalles
+- **Error Handling**: Manejo centralizado de excepciones
+
+## 📎 Adjuntos y Carga de Archivos
+
+La API soporta la carga de archivos (comprobantes, recibos, facturas) asociados a transacciones y transferencias.
+
+### Endpoints de Carga
+
+#### Transacción con Archivo
+```bash
+POST /uploads/transactions
+Content-Type: multipart/form-data
+
+Campos:
+- file: archivo (requerido)
+- description: string (requerido)
+- card_id: integer (requerido)
+- category_id: integer (opcional)
+- income: decimal (opcional, default: 0)
+- expenses: decimal (opcional, default: 0)
+- executed: boolean (opcional, default: true)
+- operation_date: string ISO (requerido)
+```
+
+#### Transferencia con Archivo
+```bash
+POST /uploads/transfers
+Content-Type: multipart/form-data
+
+Campos:
+- file: archivo (requerido)
+- source_card_id: integer (requerido)
+- destination_card_id: integer (requerido)
+- amount: decimal (requerido)
+- description: string (opcional)
+- category_id: integer (opcional)
+- operation_date: string ISO (requerido)
+```
+
+### Configuración de Archivos
+
+Variables de entorno para control de cargas:
+
+- **UPLOAD_DIR**: Directorio de almacenamiento (default: `uploads`)
+- **UPLOAD_MAX_MB**: Tamaño máximo en MB (default: `5`)
+- **UPLOAD_ALLOWED_CONTENT_TYPES**: Content-types adicionales permitidos
+- **UPLOAD_BLOCKED_CONTENT_TYPES**: Content-types bloqueados (default: `image/svg+xml`)
+- **UPLOAD_ALLOWED_EXTS**: Extensiones permitidas (default: `.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff,.pdf`)
+- **UPLOAD_BLOCKED_EXTS**: Extensiones bloqueadas (default: `.svg,.svgz`)
+
+### Validaciones
+
+- Validación de tamaño de archivo
+- Validación de tipo MIME
+- Validación de extensión de archivo
+- Protección contra archivos maliciosos (SVG bloqueados por default)
+
+## 📊 Logging y Monitoreo
+
+### Logs Estructurados
+
+Todos los logs se emiten en formato JSON estructurado con campos consistentes:
+
+```json
+{
+  "timestamp": "2024-10-19T20:00:00.000Z",
+  "level": "INFO",
+  "service": "colli-finance",
+  "event": "request_completed",
+  "status_code": 200,
+  "duration_ms": 45,
+  "method": "GET",
+  "path": "/users/me"
+}
+```
+
+### Integración con Loki
+
+Si configuras `LOKI_URL`, los logs se enviarán automáticamente a Grafana Loki para:
+- Agregación centralizada de logs
+- Búsqueda y filtrado avanzado
+- Creación de dashboards
+- Alertas basadas en logs
+
+### Niveles de Log
+
+- **DEBUG**: Información detallada de desarrollo
+- **INFO**: Eventos normales de la aplicación
+- **WARNING**: Situaciones anómalas pero no críticas
+- **ERROR**: Errores que requieren atención
+
+### Eventos Registrados
+
+- Inicio y fin de peticiones HTTP
+- Operaciones de base de datos
+- Autenticación de usuarios
+- Creación, actualización y eliminación de recursos
+- Errores y excepciones
+
+## 🐳 Docker
+
+### Docker Compose Local
+
+Construir y ejecutar con imagen local:
+
+```bash
+# Copiar variables de entorno
+cp .env.example .env
+
+# Editar .env con tus valores
+nano .env
+
+# Construir y levantar servicios
+docker compose -f docker-compose.local.yml up --build
+
+# En modo detached (background)
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+La API estará disponible en `http://localhost:8000` y PostgreSQL en `localhost:5433`.
+
+### Docker Compose con Imagen de Docker Hub
+
+Si tienes una imagen publicada:
+
+```bash
+docker compose -f docker-compose.dockerhub.yml up
+```
+
+Asegúrate de actualizar la referencia de imagen en el archivo.
+
+### Servicios Incluidos
+
+- **api**: API de FastAPI
+- **db**: PostgreSQL 15
+- **uploads-init**: Inicializador de permisos para directorio de uploads
+- **loki** (opcional): Agregador de logs
+
+### Volúmenes
+
+- `postgres_data`: Datos persistentes de PostgreSQL
+- `uploads_data`: Archivos subidos
+
+### Comandos Útiles
+
+```bash
+# Ver logs
+docker compose logs -f api
+
+# Ejecutar comando en contenedor
+docker compose exec api bash
+
+# Detener servicios
+docker compose down
+
+# Eliminar volúmenes (¡borra datos!)
+docker compose down -v
+```
+
+## 🧪 Testing
+
+### Ejecutar Tests
+
+```bash
+# Instalar dependencias de desarrollo
+make install-dev
+
+# Ejecutar todos los tests
+make test
+
+# O con pytest directamente
+pytest
+
+# Tests específicos
+pytest tests/test_auth.py
+pytest tests/test_transfers.py -v
+
+# Con cobertura
+pytest --cov=app --cov-report=html
+```
+
+### Tests en Docker
+
+```bash
+make test-docker
+```
+
+Esto ejecuta los tests dentro del contenedor Docker con la configuración de CI.
+
+### Tests Disponibles
+
+- `test_health.py`: Verificación del endpoint de health
+- `test_auth.py`: Tests de autenticación y registro
+- `test_transfers.py`: Tests de transferencias entre tarjetas
+- `conftest.py`: Fixtures compartidos para tests
+
+### Estructura de Tests
+
+```python
+@pytest.mark.asyncio
+async def test_ejemplo(client, test_user):
+    response = await client.get("/endpoint")
+    assert response.status_code == 200
+```
+
+## 👨‍💻 Desarrollo
+
+### Estructura del Proyecto
+
+```
+colli_finance/
+├── app/
+│   ├── core/           # Configuración, seguridad, dependencias
+│   ├── crud/           # Operaciones de base de datos
+│   ├── db/             # Modelos y sesión de BD
+│   ├── routers/        # Endpoints de la API
+│   ├── schemas/        # Esquemas Pydantic
+│   ├── services/       # Lógica de negocio
+│   ├── tools/          # Utilidades y scripts
+│   └── main.py         # Punto de entrada de la aplicación
+├── alembic/            # Migraciones de base de datos
+├── tests/              # Tests automatizados
+├── uploads/            # Archivos subidos (generado)
+├── .env.example        # Ejemplo de variables de entorno
+├── .gitignore          # Archivos ignorados por git
+├── Dockerfile          # Imagen Docker
+├── docker-compose.*.yml # Configuraciones Docker Compose
+├── Makefile            # Comandos útiles
+├── requirements.txt    # Dependencias de producción
+└── requirements-dev.txt # Dependencias de desarrollo
+```
+
+### Makefile
+
+El proyecto incluye un Makefile con comandos útiles:
+
+```bash
+make install-dev    # Instalar dependencias de desarrollo
+make migrate        # Ejecutar migraciones
+make test          # Ejecutar tests
+make test-docker   # Ejecutar tests en Docker
+```
+
+### Convenciones de Código
+
+- **PEP 8**: Estilo de código Python
+- **Type Hints**: Uso de anotaciones de tipos
+- **Async/Await**: Programación asíncrona
+- **Pydantic Models**: Validación de datos
+- **SQLAlchemy 2.0**: ORM moderno con sintaxis async
+
+### Workflow de Desarrollo
+
+1. Crear rama feature: `git checkout -b feature/nombre-feature`
+2. Realizar cambios
+3. Ejecutar tests: `make test`
+4. Commit: `git commit -m "descripción"`
+5. Push: `git push origin feature/nombre-feature`
+6. Crear Pull Request
+
+## 📝 TODO y Roadmap
+
+Ver [TODO.md](TODO.md) para:
+- Características completadas
+- Funcionalidades pendientes
+- Mejoras planificadas
+
+## 📄 Licencia
+
+Este proyecto está bajo licencia privada. Todos los derechos reservados.
+
+## 👤 Autor
+
+([@rafavg77](https://github.com/rafavg77))
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Por favor:
+1. Fork el proyecto
+2. Crea una rama feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
